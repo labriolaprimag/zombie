@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zombie Survival</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+        }
+        #gameCanvas {
+            display: block;
+            background: #2d2d2d;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px black;
+        }
+        #healthBar {
+            width: 300px;
+            height: 30px;
+            background: #333;
+            border: 3px solid #fff;
+            margin-top: 10px;
+            position: relative;
+        }
+        #healthFill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff0000, #ff4444);
+            width: 100%;
+            transition: width 0.3s;
+        }
+        #healthText {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+        }
+        #leaderboard {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            min-width: 200px;
+        }
+        #leaderboard h3 {
+            margin-bottom: 10px;
+            color: #ffd700;
+            text-align: center;
+        }
+        .leaderboard-entry {
+            padding: 5px;
+            margin: 3px 0;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+        }
+        #namePrompt {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            padding: 40px;
+            border-radius: 20px;
+            color: white;
+            text-align: center;
+            z-index: 1000;
+            border: 3px solid #ffd700;
+        }
+        #namePrompt h2 {
+            color: #ffd700;
+            margin-bottom: 20px;
+        }
+        #namePrompt input {
+            padding: 12px;
+            font-size: 18px;
+            width: 300px;
+            border: 2px solid #ffd700;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        #namePrompt button {
+            padding: 12px 30px;
+            font-size: 18px;
+            background: #ffd700;
+            color: black;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #namePrompt button:hover {
+            background: #ffed4e;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            padding: 40px;
+            border-radius: 20px;
+            color: white;
+            text-align: center;
+            display: none;
+        }
+        #gameOver h2 {
+            color: #ff0000;
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        #gameOver button {
+            padding: 15px 30px;
+            font-size: 20px;
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        #gameOver button:hover {
+            background: #ff6666;
+        }
+        #mobileControls {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: none;
+            justify-content: space-between;
+            padding: 0 20px;
+            pointer-events: none;
+        }
+        #joystick {
+            width: 150px;
+            height: 150px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            position: relative;
+            pointer-events: all;
+        }
+        #joystickKnob {
+            width: 60px;
+            height: 60px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        #shootButton {
+            width: 100px;
+            height: 100px;
+            background: rgba(255,0,0,0.5);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            pointer-events: all;
+            user-select: none;
+        }
+        @media (max-width: 768px), (pointer: coarse) {
+            #mobileControls {
+                display: flex;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui">
+        <div>Ondata: <span id="wave">1</span></div>
+        <div>Punteggio: <span id="score">0</span></div>
+        <div>Zombie rimasti: <span id="zombiesLeft">0</span></div>
+        <div id="healthBar">
+            <div id="healthFill"></div>
+            <div id="healthText">100 / 100</div>
+        </div>
+    </div>
+    <div id="leaderboard">
+        <h3>🏆 CLASSIFICA 🏆</h3>
+        <div id="leaderboardList"></div>
+    </div>
+    <div id="namePrompt">
+        <h2>🎉 TOP 10 GLOBALE! 🎉</h2>
+        <p>Congratulazioni! Hai raggiunto la classifica globale!</p>
+        <p style="font-size: 24px; color: #ffd700; margin: 15px 0;">Punteggio: <span id="promptScore">0</span></p>
+        <input type="text" id="playerNameInput" placeholder="Inserisci il tuo nome" maxlength="20">
+        <br>
+        <button onclick="saveToGlobalLeaderboard()">SALVA</button>
+    </div>
+    <div id="gameOver">
+        <h2>GAME OVER</h2>
+        <p>Punteggio finale: <span id="finalScore">0</span></p>
+        <p>Ondata raggiunta: <span id="finalWave">1</span></p>
+        <button onclick="restartGame()">Riprova</button>
+    </div>
+    <div id="mobileControls">
+        <div id="joystick">
+            <div id="joystickKnob"></div>
+        </div>
+        <div id="shootButton">🔫</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Game state
+        let gameRunning = true;
+        let wave = 1;
+        let score = 0;
+        let health = 100;
+        const maxHealth = 100;
+
+        // Player
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            size: 20,
+            speed: 5,
+            angle: 0,
+            frozen: false
+        };
+
+        // Controls
+        const keys = {};
+        const mouse = { x: 0, y: 0 };
+        let joystickActive = false;
+        let joystickVector = { x: 0, y: 0 };
+
+        // Arrays
+        let zombies = [];
+        let bullets = [];
+        let enemyProjectiles = [];
+        let boss = null;
+        let healthPack = null;
+
+        // Leaderboard data (stored in memory)
+        let leaderboard = [
+            { name: 'Player1', score: 5000 },
+            { name: 'Player2', score: 4000 },
+            { name: 'Player3', score: 3000 },
+            { name: 'Player4', score: 2000 },
+            { name: 'Player5', score: 1000 }
+        ];
+
+        let globalLeaderboard = [];
+
+        // Load global leaderboard
+        async function loadGlobalLeaderboard() {
+            try {
+                // Try window.storage first (Claude.ai environment)
+                if (window.storage) {
+                    const result = await window.storage.get('zombie-global-leaderboard', true);
+                    if (result && result.value) {
+                        globalLeaderboard = JSON.parse(result.value);
+                        displayGlobalLeaderboard();
+                    }
+                } else {
+                    // Fallback to localStorage for standalone HTML
+                    const saved = localStorage.getItem('zombie-global-leaderboard');
+                    if (saved) {
+                        globalLeaderboard = JSON.parse(saved);
+                        displayGlobalLeaderboard();
+                    }
+                }
+            } catch (error) {
+                console.log('No global leaderboard yet');
+            }
+        }
+
+        // Display global leaderboard
+        function displayGlobalLeaderboard() {
+            const list = document.getElementById('leaderboardList');
+            list.innerHTML = '';
+            
+            if (globalLeaderboard.length === 0) {
+                list.innerHTML = '<div class="leaderboard-entry">Nessun punteggio ancora!</div>';
+                return;
+            }
+
+            globalLeaderboard.slice(0, 10).forEach((entry, i) => {
+                const div = document.createElement('div');
+                div.className = 'leaderboard-entry';
+                div.textContent = `${i + 1}. ${entry.name}: ${entry.score}`;
+                list.appendChild(div);
+            });
+        }
+
+        // Check if score is in top 10
+        function checkGlobalTop10() {
+            const tempBoard = [...globalLeaderboard, { name: '', score: score }];
+            tempBoard.sort((a, b) => b.score - a.score);
+            
+            const position = tempBoard.findIndex(entry => entry.score === score && entry.name === '');
+            
+            if (position < 10) {
+                document.getElementById('promptScore').textContent = score;
+                document.getElementById('namePrompt').style.display = 'block';
+                document.getElementById('playerNameInput').value = '';
+                document.getElementById('playerNameInput').focus();
+            }
+        }
+
+        // Save to global leaderboard
+        async function saveToGlobalLeaderboard() {
+            const name = document.getElementById('playerNameInput').value.trim();
+            
+            if (!name) {
+                alert('Inserisci un nome!');
+                return;
+            }
+
+            globalLeaderboard.push({ name: name, score: score });
+            globalLeaderboard.sort((a, b) => b.score - a.score);
+            globalLeaderboard = globalLeaderboard.slice(0, 10);
+
+            try {
+                // Try window.storage first (Claude.ai environment)
+                if (window.storage) {
+                    await window.storage.set('zombie-global-leaderboard', JSON.stringify(globalLeaderboard), true);
+                } else {
+                    // Fallback to localStorage for standalone HTML
+                    localStorage.setItem('zombie-global-leaderboard', JSON.stringify(globalLeaderboard));
+                }
+                displayGlobalLeaderboard();
+                document.getElementById('namePrompt').style.display = 'none';
+            } catch (error) {
+                console.error('Errore nel salvare il punteggio:', error);
+                alert('Errore nel salvare il punteggio. Riprova!');
+            }
+        }
+
+        // Event listeners
+        window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+        window.addEventListener('click', shoot);
+
+        // Mobile controls
+        const joystick = document.getElementById('joystick');
+        const joystickKnob = document.getElementById('joystickKnob');
+        const shootButton = document.getElementById('shootButton');
+
+        joystick.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            joystickActive = true;
+        });
+
+        joystick.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!joystickActive) return;
+            
+            const rect = joystick.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const touch = e.touches[0];
+            
+            let deltaX = touch.clientX - centerX;
+            let deltaY = touch.clientY - centerY;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            const maxDistance = 45;
+            
+            if (distance > maxDistance) {
+                deltaX = (deltaX / distance) * maxDistance;
+                deltaY = (deltaY / distance) * maxDistance;
+            }
+            
+            joystickKnob.style.transform = `translate(calc(-50% + ${deltaX}px), calc(-50% + ${deltaY}px))`;
+            joystickVector.x = deltaX / maxDistance;
+            joystickVector.y = deltaY / maxDistance;
+        });
+
+        joystick.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            joystickActive = false;
+            joystickKnob.style.transform = 'translate(-50%, -50%)';
+            joystickVector.x = 0;
+            joystickVector.y = 0;
+        });
+
+        shootButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            shoot();
+        });
+
+        // Zombie class
+        class Zombie {
+            constructor(type = 'normal') {
+                const side = Math.floor(Math.random() * 4);
+                if (side === 0) { // Top
+                    this.x = Math.random() * canvas.width;
+                    this.y = -30;
+                } else if (side === 1) { // Right
+                    this.x = canvas.width + 30;
+                    this.y = Math.random() * canvas.height;
+                } else if (side === 2) { // Bottom
+                    this.x = Math.random() * canvas.width;
+                    this.y = canvas.height + 30;
+                } else { // Left
+                    this.x = -30;
+                    this.y = Math.random() * canvas.height;
+                }
+                
+                this.type = type;
+                this.lastHit = 0;
+                this.lastShoot = 0;
+                
+                // Set properties based on type
+                if (type === 'ice') {
+                    this.size = 15;
+                    this.speed = 1.3 + (wave * 0.08);
+                    this.health = 2;
+                    this.damage = 5;
+                    this.color = '#00ffff';
+                    this.eyeColor = '#0088aa';
+                } else if (type === 'fire') {
+                    this.size = 15;
+                    this.speed = 1.2 + (wave * 0.08);
+                    this.health = 3;
+                    this.damage = 5;
+                    this.color = '#ff3333';
+                    this.eyeColor = '#990000';
+                } else if (type === 'fast') {
+                    this.size = 10;
+                    this.speed = 3 + (wave * 0.15);
+                    this.health = 1;
+                    this.damage = 2;
+                    this.color = '#ffff00';
+                    this.eyeColor = '#aaaa00';
+                } else if (type === 'tank') {
+                    this.size = 25;
+                    this.speed = 0.8 + (wave * 0.05);
+                    this.health = 8;
+                    this.damage = 10;
+                    this.color = '#ff8800';
+                    this.eyeColor = '#883300';
+                } else { // normal
+                    this.size = 15;
+                    this.speed = 1.5 + (wave * 0.1);
+                    this.health = 2;
+                    this.damage = 5;
+                    this.color = '#00ff00';
+                    this.eyeColor = '#003300';
+                }
+            }
+
+            update() {
+                // Fire zombie shoots
+                if (this.type === 'fire') {
+                    const distToPlayer = Math.sqrt(
+                        Math.pow(this.x - player.x, 2) + Math.pow(this.y - player.y, 2)
+                    );
+                    if (distToPlayer < 300 && Date.now() - this.lastShoot > 2000) {
+                        this.shoot();
+                        this.lastShoot = Date.now();
+                    }
+                }
+
+                const dx = player.x - this.x;
+                const dy = player.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                this.x += (dx / dist) * this.speed;
+                this.y += (dy / dist) * this.speed;
+
+                // Collision with player
+                const playerDist = Math.sqrt(
+                    Math.pow(this.x - player.x, 2) + Math.pow(this.y - player.y, 2)
+                );
+                if (playerDist < this.size + player.size && Date.now() - this.lastHit > 1000) {
+                    health -= this.damage;
+                    this.lastHit = Date.now();
+                    
+                    // Ice zombie freezes player
+                    if (this.type === 'ice') {
+                        player.frozen = true;
+                        setTimeout(() => player.frozen = false, 1000);
+                    }
+                    
+                    updateHealth();
+                    if (health <= 0) {
+                        endGame();
+                    }
+                }
+            }
+
+            shoot() {
+                const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                enemyProjectiles.push(new EnemyProjectile(this.x, this.y, angle, 'fire'));
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = this.eyeColor;
+                ctx.beginPath();
+                ctx.arc(this.x - this.size/3, this.y - this.size/3, 3, 0, Math.PI * 2);
+                ctx.arc(this.x + this.size/3, this.y - this.size/3, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Boss class
+        class Boss {
+            constructor() {
+                this.x = canvas.width / 2;
+                this.y = -50;
+                this.size = 40;
+                this.speed = 1;
+                this.maxHealth = 40 + (Math.floor(wave / 10) * 10);
+                this.health = this.maxHealth;
+                this.damage = 15;
+                this.lastHit = 0;
+                this.lastShoot = 0;
+                this.shieldActive = false;
+                this.lastShield = Date.now();
+                this.moveToCenter = true;
+            }
+
+            update() {
+                // Move to center first
+                if (this.moveToCenter && this.y < canvas.height / 3) {
+                    this.y += this.speed * 2;
+                } else {
+                    this.moveToCenter = false;
+                    // Circle around center
+                    const centerX = canvas.width / 2;
+                    const centerY = canvas.height / 3;
+                    const angle = Date.now() * 0.0005;
+                    const radius = 100;
+                    this.x = centerX + Math.cos(angle) * radius;
+                    this.y = centerY + Math.sin(angle) * radius;
+                }
+
+                // Shield mechanics
+                if (Date.now() - this.lastShield > 10000) {
+                    this.shieldActive = true;
+                    this.lastShield = Date.now();
+                    setTimeout(() => this.shieldActive = false, 2000);
+                }
+
+                // Shoot projectiles
+                if (Date.now() - this.lastShoot > 1500) {
+                    this.shoot();
+                    this.lastShoot = Date.now();
+                }
+
+                // Collision with player
+                const playerDist = Math.sqrt(
+                    Math.pow(this.x - player.x, 2) + Math.pow(this.y - player.y, 2)
+                );
+                if (playerDist < this.size + player.size && Date.now() - this.lastHit > 1000) {
+                    health -= this.damage;
+                    this.lastHit = Date.now();
+                    updateHealth();
+                    if (health <= 0) {
+                        endGame();
+                    }
+                }
+            }
+
+            shoot() {
+                const angle = Math.atan2(player.y - this.y, player.x - this.x);
+                enemyProjectiles.push(new EnemyProjectile(this.x, this.y, angle, 'boss'));
+            }
+
+            draw() {
+                // Shield
+                if (this.shieldActive) {
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 5;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size + 10, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                // Body
+                ctx.fillStyle = '#aa00ff';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Eyes
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.arc(this.x - this.size/3, this.y - this.size/4, 6, 0, Math.PI * 2);
+                ctx.arc(this.x + this.size/3, this.y - this.size/4, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Health bar
+                ctx.fillStyle = '#333';
+                ctx.fillRect(this.x - 40, this.y - this.size - 15, 80, 8);
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(this.x - 40, this.y - this.size - 15, 80 * (this.health / this.maxHealth), 8);
+            }
+        }
+
+        // Enemy Projectile class
+        class EnemyProjectile {
+            constructor(x, y, angle, type) {
+                this.x = x;
+                this.y = y;
+                this.angle = angle;
+                this.type = type;
+                this.speed = type === 'boss' ? 6 : 5;
+                this.size = type === 'boss' ? 10 : 6;
+                this.damage = type === 'boss' ? 10 : 5;
+            }
+
+            update() {
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed;
+
+                // Check collision with player
+                const dist = Math.sqrt(
+                    Math.pow(this.x - player.x, 2) + Math.pow(this.y - player.y, 2)
+                );
+                if (dist < this.size + player.size) {
+                    health -= this.damage;
+                    updateHealth();
+                    if (health <= 0) {
+                        endGame();
+                    }
+                    return true; // Remove projectile
+                }
+
+                return this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height;
+            }
+
+            draw() {
+                ctx.fillStyle = this.type === 'boss' ? '#ff00ff' : '#ff6600';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Health Pack class
+        class HealthPack {
+            constructor() {
+                this.x = Math.random() * (canvas.width - 100) + 50;
+                this.y = Math.random() * (canvas.height - 100) + 50;
+                this.size = 15;
+            }
+
+            update() {
+                const dist = Math.sqrt(
+                    Math.pow(this.x - player.x, 2) + Math.pow(this.y - player.y, 2)
+                );
+                if (dist < this.size + player.size) {
+                    health = Math.min(maxHealth, health + 10);
+                    updateHealth();
+                    return true; // Remove health pack
+                }
+                return false;
+            }
+
+            draw() {
+                // Heart shape
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + this.size / 4);
+                ctx.bezierCurveTo(this.x, this.y - this.size / 4, this.x - this.size / 2, this.y - this.size / 4, this.x - this.size / 2, this.y + this.size / 4);
+                ctx.bezierCurveTo(this.x - this.size / 2, this.y + this.size / 2, this.x, this.y + this.size, this.x, this.y + this.size);
+                ctx.bezierCurveTo(this.x, this.y + this.size, this.x + this.size / 2, this.y + this.size / 2, this.x + this.size / 2, this.y + this.size / 4);
+                ctx.bezierCurveTo(this.x + this.size / 2, this.y - this.size / 4, this.x, this.y - this.size / 4, this.x, this.y + this.size / 4);
+                ctx.fill();
+                
+                // Glow effect
+                ctx.strokeStyle = '#ffaaaa';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        // Minion class (Boss minions)
+        class Minion {
+            constructor() {
+                const side = Math.floor(Math.random() * 4);
+                if (side === 0) {
+                    this.x = Math.random() * canvas.width;
+                    this.y = -30;
+                } else if (side === 1) {
+                    this.x = canvas.width + 30;
+                    this.y = Math.random() * canvas.height;
+                } else if (side === 2) {
+                    this.x = Math.random() * canvas.width;
+                    this.y = canvas.height + 30;
+                } else {
+                    this.x = -30;
+                    this.y = Math.random() * canvas.height;
+                }
+                this.size = 15;
+                this.speed = 1.5 + (wave * 0.1);
+                this.health = 2;
+                this.lastHit = 0;
+                this.damage = 5;
+            }
+
+            update() {
+                const dx = player.x - this.x;
+                const dy = player.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                this.x += (dx / dist) * this.speed;
+                this.y += (dy / dist) * this.speed;
+
+                const playerDist = Math.sqrt(
+                    Math.pow(this.x - player.x, 2) + Math.pow(this.y - player.y, 2)
+                );
+                if (playerDist < this.size + player.size && Date.now() - this.lastHit > 1000) {
+                    health -= this.damage;
+                    this.lastHit = Date.now();
+                    updateHealth();
+                    if (health <= 0) {
+                        endGame();
+                    }
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = '#5500aa';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#220044';
+                ctx.beginPath();
+                ctx.arc(this.x - this.size/3, this.y - this.size/3, 3, 0, Math.PI * 2);
+                ctx.arc(this.x + this.size/3, this.y - this.size/3, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Bullet class
+        class Bullet {
+            constructor(x, y, angle) {
+                this.x = x;
+                this.y = y;
+                this.angle = angle;
+                this.speed = 10;
+                this.size = 4;
+            }
+
+            update() {
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed;
+                return this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height;
+            }
+
+            draw() {
+                ctx.fillStyle = '#ffff00';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function shoot() {
+            if (!gameRunning) return;
+            const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+            bullets.push(new Bullet(player.x, player.y, angle));
+        }
+
+        function spawnWave() {
+            // Spawn health pack
+            healthPack = new HealthPack();
+
+            // Boss wave every 10 waves
+            if (wave % 10 === 0) {
+                boss = new Boss();
+                // Spawn 5 minions with the boss
+                for (let i = 0; i < 5; i++) {
+                    zombies.push(new Minion());
+                }
+                document.getElementById('zombiesLeft').textContent = 'BOSS + 5 scagnozzi!';
+                return;
+            }
+
+            const zombieCount = 5 + (wave * 3);
+            for (let i = 0; i < zombieCount; i++) {
+                let type = 'normal';
+                
+                // Introduce new zombie types as waves progress
+                if (wave >= 3) {
+                    const rand = Math.random();
+                    if (rand < 0.15) type = 'fast';
+                    else if (rand < 0.3 && wave >= 5) type = 'ice';
+                    else if (rand < 0.45 && wave >= 7) type = 'fire';
+                    else if (rand < 0.55 && wave >= 9) type = 'tank';
+                }
+                
+                zombies.push(new Zombie(type));
+            }
+            document.getElementById('zombiesLeft').textContent = zombies.length;
+        }
+
+        function updatePlayer() {
+            if (player.frozen) return;
+            
+            // Keyboard controls
+            if (keys['w'] || keys['arrowup']) player.y -= player.speed;
+            if (keys['s'] || keys['arrowdown']) player.y += player.speed;
+            if (keys['a'] || keys['arrowleft']) player.x -= player.speed;
+            if (keys['d'] || keys['arrowright']) player.x += player.speed;
+
+            // Joystick controls
+            if (joystickActive) {
+                player.x += joystickVector.x * player.speed;
+                player.y += joystickVector.y * player.speed;
+            }
+
+            player.x = Math.max(player.size, Math.min(canvas.width - player.size, player.x));
+            player.y = Math.max(player.size, Math.min(canvas.height - player.size, player.y));
+
+            player.angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+        }
+
+        function drawPlayer() {
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.angle);
+            
+            // Body
+            ctx.fillStyle = '#0066ff';
+            ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
+            
+            // Gun
+            ctx.fillStyle = '#333';
+            ctx.fillRect(player.size/2, -3, 15, 6);
+            
+            ctx.restore();
+        }
+
+        function updateHealth() {
+            const healthPercent = (health / maxHealth) * 100;
+            document.getElementById('healthFill').style.width = healthPercent + '%';
+            document.getElementById('healthText').textContent = health + ' / ' + maxHealth;
+        }
+
+        function updateLeaderboard() {
+            leaderboard.push({ name: 'Tu', score: score });
+            leaderboard.sort((a, b) => b.score - a.score);
+            leaderboard = leaderboard.slice(0, 5);
+        }
+
+        function endGame() {
+            gameRunning = false;
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalWave').textContent = wave;
+            document.getElementById('gameOver').style.display = 'block';
+            updateLeaderboard();
+            checkGlobalTop10();
+        }
+
+        function restartGame() {
+            gameRunning = true;
+            wave = 1;
+            score = 0;
+            health = 100;
+            zombies = [];
+            bullets = [];
+            enemyProjectiles = [];
+            boss = null;
+            healthPack = null;
+            player.x = canvas.width / 2;
+            player.y = canvas.height / 2;
+            player.frozen = false;
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('wave').textContent = wave;
+            document.getElementById('score').textContent = score;
+            updateHealth();
+            spawnWave();
+        }
+
+        function gameLoop() {
+            if (!gameRunning) {
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+
+            ctx.fillStyle = '#2d2d2d';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            updatePlayer();
+            drawPlayer();
+
+            // Update and draw bullets
+            bullets = bullets.filter(bullet => {
+                const outOfBounds = bullet.update();
+                bullet.draw();
+
+                // Check collision with boss
+                if (boss && !boss.shieldActive) {
+                    const dx = bullet.x - boss.x;
+                    const dy = bullet.y - boss.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < boss.size + bullet.size) {
+                        boss.health--;
+                        if (boss.health <= 0) {
+                            boss = null;
+                            wave++;
+                            score += 1000;
+                            document.getElementById('wave').textContent = wave;
+                            document.getElementById('score').textContent = score;
+                            spawnWave();
+                        }
+                        return false;
+                    }
+                }
+
+                // Check collision with zombies
+                for (let i = zombies.length - 1; i >= 0; i--) {
+                    const dx = bullet.x - zombies[i].x;
+                    const dy = bullet.y - zombies[i].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < zombies[i].size + bullet.size) {
+                        zombies[i].health--;
+                        if (zombies[i].health <= 0) {
+                            zombies.splice(i, 1);
+                            if (!boss) {
+                                document.getElementById('zombiesLeft').textContent = zombies.length;
+                            }
+                        }
+                        return false;
+                    }
+                }
+                return !outOfBounds;
+            });
+
+            // Update and draw enemy projectiles
+            enemyProjectiles = enemyProjectiles.filter(proj => {
+                const remove = proj.update();
+                proj.draw();
+                return !remove;
+            });
+
+            // Update and draw health pack
+            if (healthPack) {
+                if (healthPack.update()) {
+                    healthPack = null;
+                } else {
+                    healthPack.draw();
+                }
+            }
+
+            // Update and draw boss
+            if (boss) {
+                boss.update();
+                boss.draw();
+            }
+
+            // Update and draw zombies
+            zombies.forEach(zombie => {
+                zombie.update();
+                zombie.draw();
+            });
+
+            // Check if wave is complete
+            if (zombies.length === 0 && !boss) {
+                wave++;
+                score += 1000;
+                document.getElementById('wave').textContent = wave;
+                document.getElementById('score').textContent = score;
+                spawnWave();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start game
+        loadGlobalLeaderboard();
+        spawnWave();
+        updateLeaderboard();
+        gameLoop();
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+</html>
